@@ -36,7 +36,7 @@ type MySQLConfig struct {
 func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
-			Port: getEnv("SERVER_PORT", "8080"),
+			Port: getEnv("SERVER_PORT", "8072"),
 			Host: getEnv("SERVER_HOST", "0.0.0.0"),
 		},
 		Redis: RedisConfig{

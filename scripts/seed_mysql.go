@@ -4,14 +4,22 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
-	// Connect to MySQL
-	dsn := "gigmile:gigmile123@tcp(localhost:3306)/gigmile?parseTime=true"
+	// Connect to MySQL - use environment variables or defaults
+	mysqlUser := getEnv("MYSQL_USER", "root")
+	mysqlPassword := getEnv("MYSQL_PASSWORD", "my-secret-pw")
+	mysqlHost := getEnv("MYSQL_HOST", "localhost:3306")
+	mysqlDatabase := getEnv("MYSQL_DB", "gigmile")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
+		mysqlUser, mysqlPassword, mysqlHost, mysqlDatabase)
+	
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to MySQL: %v", err)
@@ -20,7 +28,8 @@ func main() {
 
 	// Test connection
 	if err := db.Ping(); err != nil {
-		log.Fatalf("Failed to ping MySQL: %v", err)
+		log.Fatalf("Failed to ping MySQL: %v\nDSN: %s:%s@tcp(%s)/%s",
+			err, mysqlUser, "***", mysqlHost, mysqlDatabase)
 	}
 
 	fmt.Println("Connected to MySQL successfully")
@@ -72,4 +81,11 @@ func main() {
 
 	fmt.Println("\nSeed completed successfully!")
 	fmt.Println("You can now test the API with customer IDs: GIG00001 to GIG00005")
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

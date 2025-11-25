@@ -14,15 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrPaymentNotFound = errors.New("payment not found")
-)
-
-var (
-	ErrCustomerNotFound = errors.New("customer not found")
-	ErrVersionMismatch  = errors.New("version mismatch - optimistic lock failed")
-)
-
 type GORMPaymentRepository struct {
 	db        *gorm.DB
 	redisRepo *redisrepository.RedisPaymentRepository

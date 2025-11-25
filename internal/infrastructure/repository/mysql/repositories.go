@@ -1,10 +1,17 @@
 package sqlrepository
 
 import (
+	"errors"
+
 	"github.com/gigmile/payment-service/internal/domain"
 	"github.com/go-redis/redis/v8"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrCustomerNotFound = errors.New("customer not found")
+	ErrPaymentNotFound  = errors.New("payment not found")
 )
 
 type Repositories struct {

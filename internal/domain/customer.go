@@ -86,7 +86,7 @@ func (c *Customer) ApplyPayment(amount int64, paymentDate time.Time) error {
 		c.Status = CustomerStatusCompleted
 	}
 
-	c.Version++
+	// Note: Version is incremented by the repository during persistence
 	return nil
 }
 

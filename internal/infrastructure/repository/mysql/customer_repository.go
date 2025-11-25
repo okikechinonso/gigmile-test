@@ -29,14 +29,14 @@ func NewCustomerRepository(db *gorm.DB, redisClient *redis.Client, logger *zap.L
 }
 
 func (r *GORMCustomerRepository) FindByID(ctx context.Context, id string) (*domain.Customer, error) {
-	// 1. Try Redis cache first (hot path)
+	// Try Redis cache first for high throughput
 	cached, err := r.redisRepo.FindByID(ctx, id)
 	if err == nil {
 		r.logger.Debug("customer cache hit", zap.String("customer_id", id))
 		return cached, nil
 	}
 
-	// 2. Cache miss - query MySQL with GORM
+	// Cache miss - query MySQL
 	r.logger.Debug("customer cache miss, querying MySQL", zap.String("customer_id", id))
 
 	var model persistence.CustomerModel
@@ -52,7 +52,7 @@ func (r *GORMCustomerRepository) FindByID(ctx context.Context, id string) (*doma
 
 	customer := model.ToDomain()
 
-	// 3. Update Redis cache (async - don't block)
+	// Update cache asynchronously
 	go r.redisRepo.Save(context.Background(), customer)
 
 	return customer, nil
@@ -60,6 +60,14 @@ func (r *GORMCustomerRepository) FindByID(ctx context.Context, id string) (*doma
 
 func (r *GORMCustomerRepository) Save(ctx context.Context, customer *domain.Customer) error {
 	model := persistence.CustomerModelFromDomain(customer)
+
+	// CRITICAL: Invalidate cache BEFORE updating MySQL
+	// This ensures concurrent requests will fetch fresh data from MySQL
+	if err := r.redisRepo.Delete(ctx, customer.ID); err != nil {
+		r.logger.Warn("failed to invalidate cache before save", 
+			zap.Error(err), 
+			zap.String("customer_id", customer.ID))
+	}
 
 	// Use optimistic locking with GORM
 	result := r.db.WithContext(ctx).
@@ -80,17 +88,18 @@ func (r *GORMCustomerRepository) Save(ctx context.Context, customer *domain.Cust
 	}
 
 	if result.RowsAffected == 0 {
-		return ErrVersionMismatch // Concurrent modification detected
+		return domain.ErrOptimisticLock // Concurrent modification detected
 	}
 
 	// Update version (GORM auto-incremented it)
 	customer.Version++
 
-	// Invalidate cache (write-through)
-	r.redisRepo.Delete(ctx, customer.ID)
-
-	// Update cache with new data (async)
-	go r.redisRepo.Save(context.Background(), customer)
+	// Update cache with latest data
+	if err := r.redisRepo.Save(ctx, customer); err != nil {
+		r.logger.Warn("failed to update cache after save",
+			zap.Error(err),
+			zap.String("customer_id", customer.ID))
+	}
 
 	r.logger.Debug("customer saved to MySQL",
 		zap.String("customer_id", customer.ID),
@@ -113,13 +122,15 @@ func (r *GORMCustomerRepository) Create(ctx context.Context, customer *domain.Cu
 		zap.String("customer_id", customer.ID),
 	)
 
-	// Cache the new customer
-	go r.redisRepo.Save(context.Background(), customer)
-
 	return nil
 }
 
 func (r *GORMCustomerRepository) UpdateBalance(ctx context.Context, customerID string, amount int64, version int64) error {
+	// Invalidate cache before update
+	if err := r.redisRepo.Delete(ctx, customerID); err != nil {
+		r.logger.Warn("failed to invalidate cache before balance update", zap.Error(err))
+	}
+
 	// This is an alternative to Save() for simpler balance updates
 	result := r.db.WithContext(ctx).
 		Model(&persistence.CustomerModel{}).
@@ -136,11 +147,8 @@ func (r *GORMCustomerRepository) UpdateBalance(ctx context.Context, customerID s
 	}
 
 	if result.RowsAffected == 0 {
-		return ErrVersionMismatch
+		return domain.ErrOptimisticLock
 	}
-
-	// Invalidate cache
-	r.redisRepo.Delete(ctx, customerID)
 
 	return nil
 }
