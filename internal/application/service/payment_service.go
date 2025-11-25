@@ -93,7 +93,6 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		}, nil
 	}
 
-	// Get customer BEFORE creating/saving payment
 	customer, err := s.customerRepo.FindByID(ctx, req.CustomerID)
 	if err != nil {
 		s.logger.Error("failed to get customer",
@@ -103,7 +102,6 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		return nil, fmt.Errorf("failed to get customer: %w", err)
 	}
 
-	// Apply payment to customer entity
 	if err := customer.ApplyPayment(req.TransactionAmount, req.TransactionDate); err != nil {
 		s.logger.Error("failed to apply payment",
 			zap.Error(err),
@@ -111,14 +109,13 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		)
 		return nil, fmt.Errorf("failed to apply payment: %w", err)
 	}
-    // Save updated customer
+
 	err = s.customerRepo.Save(ctx, customer)
 	if err == domain.ErrOptimisticLock {
 		s.logger.Warn("optimistic lock conflict, retrying once",
 			zap.String("customer_id", req.CustomerID),
 		)
 
-		// Refetch and retry
 		customer, err = s.customerRepo.FindByID(ctx, req.CustomerID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get customer on retry: %w", err)
@@ -139,7 +136,6 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		return nil, fmt.Errorf("failed to save customer: %w", err)
 	}
 
-	// save the payment record AFTER customer is successfully updated
 	payment, err := domain.NewPayment(
 		req.CustomerID,
 		req.TransactionAmount,
@@ -157,8 +153,6 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 
 	if err := s.paymentRepo.Save(ctx, payment); err != nil {
 		if err == domain.ErrDuplicateTransaction {
-			// Payment already exists, but customer was updated
-			// This is a race condition scenario - return success
 			s.logger.Warn("duplicate payment detected after customer update",
 				zap.String("customer_id", req.CustomerID),
 				zap.String("tx_ref", req.TransactionReference),
@@ -191,7 +185,6 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		zap.Int64("new_balance", customer.OutstandingBalance),
 	)
 
-	// Publish event asynchronously if event publisher is configured
 	if s.eventPublisher != nil {
 		go s.publishPaymentProcessedEvent(customer, req)
 	}
@@ -254,7 +247,6 @@ type PaginatedPaymentsResponse struct {
 }
 
 func (s *PaymentService) GetCustomerPayments(ctx context.Context, customerID string) ([]*domain.Payment, error) {
-	// Verify customer exists
 	_, err := s.customerRepo.FindByID(ctx, customerID)
 	if err != nil {
 		s.logger.Error("failed to get customer",
@@ -282,7 +274,6 @@ func (s *PaymentService) GetCustomerPayments(ctx context.Context, customerID str
 }
 
 func (s *PaymentService) GetCustomerPaymentsPaginated(ctx context.Context, customerID string, params PaginationParams) (*PaginatedPaymentsResponse, error) {
-	// Set defaults
 	if params.Page < 1 {
 		params.Page = 1
 	}
@@ -290,10 +281,9 @@ func (s *PaymentService) GetCustomerPaymentsPaginated(ctx context.Context, custo
 		params.PageSize = 10
 	}
 	if params.PageSize > 100 {
-		params.PageSize = 100 // Max page size
+		params.PageSize = 100
 	}
 
-	// Verify customer exists
 	_, err := s.customerRepo.FindByID(ctx, customerID)
 	if err != nil {
 		s.logger.Error("failed to get customer",
@@ -303,7 +293,6 @@ func (s *PaymentService) GetCustomerPaymentsPaginated(ctx context.Context, custo
 		return nil, fmt.Errorf("failed to get customer: %w", err)
 	}
 
-	// Get total count
 	totalCount, err := s.paymentRepo.CountByCustomerID(ctx, customerID)
 	if err != nil {
 		s.logger.Error("failed to count customer payments",
@@ -313,10 +302,8 @@ func (s *PaymentService) GetCustomerPaymentsPaginated(ctx context.Context, custo
 		return nil, fmt.Errorf("failed to count payments: %w", err)
 	}
 
-	// Calculate offset
 	offset := (params.Page - 1) * params.PageSize
 
-	// Get paginated payments
 	payments, err := s.paymentRepo.FindByCustomerIDWithPagination(ctx, customerID, params.PageSize, offset)
 	if err != nil {
 		s.logger.Error("failed to get customer payments",
@@ -326,7 +313,6 @@ func (s *PaymentService) GetCustomerPaymentsPaginated(ctx context.Context, custo
 		return nil, fmt.Errorf("failed to get payments: %w", err)
 	}
 
-	// Calculate total pages
 	totalPages := int(totalCount) / params.PageSize
 	if int(totalCount)%params.PageSize > 0 {
 		totalPages++

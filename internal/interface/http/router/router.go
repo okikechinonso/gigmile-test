@@ -13,7 +13,6 @@ import (
 func NewRouter(handlers *handler.Handlers, logger *zap.Logger) *chi.Mux {
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.Recovery(logger))
@@ -21,7 +20,6 @@ func NewRouter(handlers *handler.Handlers, logger *zap.Logger) *chi.Mux {
 	r.Use(chimiddleware.Compress(5))
 	r.Use(chimiddleware.Timeout(30 * time.Second))
 
-	// Routes
 	r.Get("/health", handlers.Payment.HealthCheck)
 
 	r.Route("/api/v1", func(r chi.Router) {

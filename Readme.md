@@ -80,12 +80,6 @@ To prevent duplicate payment processing when webhooks arrive multiple times, the
 
 **Performance & Scalability**: Optimistic locking offers superior throughput by avoiding lock contention (ideal for low-conflict scenarios), while pessimistic locking is simpler but forces serial access, creating bottlenecks under high concurrency.
 
-**Decision**: Optimistic locking because:
-
-- Conflicts are rare (different customers)
-- Performance is critical (100k req/min)
-- Easy retry on version mismatch
-
 ---
 
 ## 5. Performance Optimizations for 100K req/min

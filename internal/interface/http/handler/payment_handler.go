@@ -32,13 +32,11 @@ func (h *PaymentHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Validate request
 	if err := req.Validate(); err != nil {
 		h.respondError(w, http.StatusBadRequest, "validation failed", err)
 		return
 	}
 
-	// Parse amount and date
 	amount, err := req.GetAmountInKobo()
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, "invalid transaction amount", err)
@@ -51,7 +49,6 @@ func (h *PaymentHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Process payment
 	result, err := h.paymentService.ProcessPayment(r.Context(), service.ProcessPaymentRequest{
 		CustomerID:           req.CustomerID,
 		PaymentStatus:        req.PaymentStatus,
@@ -69,7 +66,6 @@ func (h *PaymentHandler) ProcessPayment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Build response
 	response := dto.PaymentResponse{
 		Success:            result.Success,
 		Message:            result.Message,
@@ -124,17 +120,14 @@ func (h *PaymentHandler) GetCustomerPayments(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse pagination parameters
 	pageStr := r.URL.Query().Get("page")
 	pageSizeStr := r.URL.Query().Get("page_size")
 
-	// If pagination params are provided, use paginated endpoint
 	if pageStr != "" || pageSizeStr != "" {
 		h.getCustomerPaymentsPaginated(w, r, customerID, pageStr, pageSizeStr)
 		return
 	}
 
-	// Otherwise, return all payments (backward compatibility)
 	payments, err := h.paymentService.GetCustomerPayments(r.Context(), customerID)
 	if err != nil {
 		h.logger.Error("failed to get customer payments",
@@ -145,7 +138,6 @@ func (h *PaymentHandler) GetCustomerPayments(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Transform domain payments to response DTOs
 	response := make([]dto.PaymentRecordResponse, len(payments))
 	for i, payment := range payments {
 		response[i] = dto.PaymentRecordResponse{
@@ -175,14 +167,12 @@ func (h *PaymentHandler) getCustomerPaymentsPaginated(w http.ResponseWriter, r *
 	page := 1
 	pageSize := 10
 
-	// Parse page
 	if pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 			page = p
 		}
 	}
 
-	// Parse page_size
 	if pageSizeStr != "" {
 		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
 			pageSize = ps
@@ -206,7 +196,6 @@ func (h *PaymentHandler) getCustomerPaymentsPaginated(w http.ResponseWriter, r *
 		return
 	}
 
-	// Transform domain payments to response DTOs
 	response := make([]dto.PaymentRecordResponse, len(result.Payments))
 	for i, payment := range result.Payments {
 		response[i] = dto.PaymentRecordResponse{

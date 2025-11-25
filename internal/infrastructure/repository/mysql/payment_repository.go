@@ -29,26 +29,21 @@ func NewPaymentRepository(db *gorm.DB, redisClient *redis.Client, logger *zap.Lo
 }
 
 func (r *GORMPaymentRepository) Save(ctx context.Context, payment *domain.Payment) error {
-	// 1. Fast idempotency check in Redis (before hitting MySQL)
 	exists, err := r.redisRepo.ExistsByTransactionReference(ctx, payment.TransactionReference)
 	if err != nil {
 		r.logger.Warn("redis dedup check failed, falling back to MySQL", zap.Error(err))
 	} else if exists {
-		// Already exists in Redis
 		return domain.ErrDuplicateTransaction
 	}
 
-	// 2. Generate ID if not set
 	if payment.ID == "" {
 		payment.ID = uuid.New().String()
 	}
 
-	// 3. Insert into MySQL using GORM
 	model := persistence.PaymentModelFromDomain(payment)
 
 	result := r.db.WithContext(ctx).Create(model)
 	if result.Error != nil {
-		// Check if duplicate key error
 		if isDuplicateError(result.Error) {
 			return domain.ErrDuplicateTransaction
 		}
@@ -88,14 +83,12 @@ func (r *GORMPaymentRepository) FindByTransactionReference(ctx context.Context, 
 }
 
 func (r *GORMPaymentRepository) ExistsByTransactionReference(ctx context.Context, txRef string) (bool, error) {
-	// 1. Check Redis first (fast path)
 	exists, err := r.redisRepo.ExistsByTransactionReference(ctx, txRef)
 	if err == nil && exists {
 		r.logger.Debug("payment exists (Redis cache)", zap.String("tx_ref", txRef))
 		return true, nil
 	}
 
-	// 2. Check MySQL (slower but source of truth)
 	var count int64
 	result := r.db.WithContext(ctx).
 		Model(&persistence.PaymentModel{}).
@@ -109,9 +102,7 @@ func (r *GORMPaymentRepository) ExistsByTransactionReference(ctx context.Context
 
 	existsInDB := count > 0
 
-	// 3. If exists in MySQL, update Redis cache
 	if existsInDB {
-		// Fetch the payment to cache it
 		payment, err := r.FindByTransactionReference(ctx, txRef)
 		if err == nil {
 			go r.redisRepo.Save(context.Background(), payment)

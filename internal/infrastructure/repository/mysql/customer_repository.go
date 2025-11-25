@@ -52,7 +52,6 @@ func (r *GORMCustomerRepository) FindByID(ctx context.Context, id string) (*doma
 
 	customer := model.ToDomain()
 
-	// Update cache asynchronously
 	go r.redisRepo.Save(context.Background(), customer)
 
 	return customer, nil
@@ -61,15 +60,12 @@ func (r *GORMCustomerRepository) FindByID(ctx context.Context, id string) (*doma
 func (r *GORMCustomerRepository) Save(ctx context.Context, customer *domain.Customer) error {
 	model := persistence.CustomerModelFromDomain(customer)
 
-	// CRITICAL: Invalidate cache BEFORE updating MySQL
-	// This ensures concurrent requests will fetch fresh data from MySQL
 	if err := r.redisRepo.Delete(ctx, customer.ID); err != nil {
 		r.logger.Warn("failed to invalidate cache before save",
 			zap.Error(err),
 			zap.String("customer_id", customer.ID))
 	}
 
-	// Use optimistic locking with GORM
 	result := r.db.WithContext(ctx).
 		Model(&persistence.CustomerModel{}).
 		Where("id = ? AND version = ?", customer.ID, customer.Version).
@@ -88,13 +84,11 @@ func (r *GORMCustomerRepository) Save(ctx context.Context, customer *domain.Cust
 	}
 
 	if result.RowsAffected == 0 {
-		return domain.ErrOptimisticLock // Concurrent modification detected
+		return domain.ErrOptimisticLock
 	}
 
-	// Update version (GORM auto-incremented it)
 	customer.Version++
 
-	// Update cache with latest data
 	if err := r.redisRepo.Save(ctx, customer); err != nil {
 		r.logger.Warn("failed to update cache after save",
 			zap.Error(err),
@@ -126,12 +120,10 @@ func (r *GORMCustomerRepository) Create(ctx context.Context, customer *domain.Cu
 }
 
 func (r *GORMCustomerRepository) UpdateBalance(ctx context.Context, customerID string, amount int64, version int64) error {
-	// Invalidate cache before update
 	if err := r.redisRepo.Delete(ctx, customerID); err != nil {
 		r.logger.Warn("failed to invalidate cache before balance update", zap.Error(err))
 	}
 
-	// This is an alternative to Save() for simpler balance updates
 	result := r.db.WithContext(ctx).
 		Model(&persistence.CustomerModel{}).
 		Where("id = ? AND version = ?", customerID, version).

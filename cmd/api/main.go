@@ -23,17 +23,14 @@ import (
 )
 
 func main() {
-	// Initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {
 		panic(fmt.Sprintf("failed to initialize logger: %v", err))
 	}
 	defer logger.Sync()
 
-	// Load configuration
 	cfg := config.Load()
 
-	// Initialize MySQL connection with GORM
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true&loc=Local",
 		cfg.MySQL.User,
 		cfg.MySQL.Password,
@@ -48,32 +45,27 @@ func main() {
 		logger.Fatal("failed to connect to MySQL", zap.Error(err))
 	}
 
-	// Get underlying *sql.DB for connection pool settings
 	sqlDB, err := db.DB()
 	if err != nil {
 		logger.Fatal("failed to get underlying sql.DB", zap.Error(err))
 	}
 	defer sqlDB.Close()
 
-	// Connection pool settings
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// Test MySQL connection
 	ctx := context.Background()
 	if err := sqlDB.PingContext(ctx); err != nil {
 		logger.Fatal("MySQL ping failed", zap.Error(err))
 	}
 
-	// Auto-migrate schemas
 	if err := db.AutoMigrate(&persistence.CustomerModel{}, &persistence.PaymentModel{}); err != nil {
 		logger.Fatal("failed to auto-migrate schemas", zap.Error(err))
 	}
 
 	logger.Info("connected to MySQL successfully", zap.String("host", cfg.MySQL.Host))
 
-	// Initialize Redis client
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port),
 		Password: cfg.Redis.Password,
@@ -81,24 +73,19 @@ func main() {
 		PoolSize: cfg.Redis.PoolSize,
 	})
 
-	// Test Redis connection
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		logger.Fatal("failed to connect to Redis", zap.Error(err))
 	}
 	logger.Info("connected to Redis successfully")
 
-	// Initialize repositories (GORM + Redis hybrid)
 	repos := sqlrepository.NewRepositories(db, redisClient, logger)
 
-	// Initialize event publisher
 	eventPublisher := messaging.NewRedisEventPublisher(redisClient, logger)
 	logger.Info("event publishing enabled")
 
-	// Initialize handlers
-	handlers := handler.NewHandlers(repos, eventPublisher, logger) // Initialize router
+	handlers := handler.NewHandlers(repos, eventPublisher, logger)
 	r := router.NewRouter(handlers, logger)
 
-	// Create HTTP server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         serverAddr,
@@ -116,14 +103,12 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("shutting down server...")
 
-	// Graceful shutdown with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
