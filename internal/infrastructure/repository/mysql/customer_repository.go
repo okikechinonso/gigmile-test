@@ -64,8 +64,8 @@ func (r *GORMCustomerRepository) Save(ctx context.Context, customer *domain.Cust
 	// CRITICAL: Invalidate cache BEFORE updating MySQL
 	// This ensures concurrent requests will fetch fresh data from MySQL
 	if err := r.redisRepo.Delete(ctx, customer.ID); err != nil {
-		r.logger.Warn("failed to invalidate cache before save", 
-			zap.Error(err), 
+		r.logger.Warn("failed to invalidate cache before save",
+			zap.Error(err),
 			zap.String("customer_id", customer.ID))
 	}
 

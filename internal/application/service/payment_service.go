@@ -243,3 +243,31 @@ func (s *PaymentService) publishPaymentProcessedEvent(customer *domain.Customer,
 func (s *PaymentService) GetCustomer(ctx context.Context, customerID string) (*domain.Customer, error) {
 	return s.customerRepo.FindByID(ctx, customerID)
 }
+
+func (s *PaymentService) GetCustomerPayments(ctx context.Context, customerID string) ([]*domain.Payment, error) {
+	// Verify customer exists
+	_, err := s.customerRepo.FindByID(ctx, customerID)
+	if err != nil {
+		s.logger.Error("failed to get customer",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+		)
+		return nil, fmt.Errorf("failed to get customer: %w", err)
+	}
+
+	payments, err := s.paymentRepo.FindByCustomerID(ctx, customerID)
+	if err != nil {
+		s.logger.Error("failed to get customer payments",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+		)
+		return nil, fmt.Errorf("failed to get payments: %w", err)
+	}
+
+	s.logger.Info("retrieved customer payments",
+		zap.String("customer_id", customerID),
+		zap.Int("count", len(payments)),
+	)
+
+	return payments, nil
+}

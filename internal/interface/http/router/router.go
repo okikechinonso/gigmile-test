@@ -26,6 +26,7 @@ func NewRouter(handlers *handler.Handlers, logger *zap.Logger) *chi.Mux {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/payments", handlers.Payment.ProcessPayment)
+		r.Get("/payments", handlers.Payment.GetCustomerPayments)
 		r.Get("/customers/{customer_id}", handlers.Payment.GetCustomer)
 	})
 

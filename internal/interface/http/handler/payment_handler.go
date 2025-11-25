@@ -115,6 +115,50 @@ func (h *PaymentHandler) GetCustomer(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, response)
 }
 
+// GetCustomerPayments retrieves all payments for a customer
+func (h *PaymentHandler) GetCustomerPayments(w http.ResponseWriter, r *http.Request) {
+	customerID := r.URL.Query().Get("customer_id")
+	if customerID == "" {
+		h.respondError(w, http.StatusBadRequest, "customer_id is required", nil)
+		return
+	}
+
+	payments, err := h.paymentService.GetCustomerPayments(r.Context(), customerID)
+	if err != nil {
+		h.logger.Error("failed to get customer payments",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+		)
+		h.respondError(w, http.StatusInternalServerError, "failed to get customer payments", err)
+		return
+	}
+
+	// Transform domain payments to response DTOs
+	response := make([]dto.PaymentRecordResponse, len(payments))
+	for i, payment := range payments {
+		response[i] = dto.PaymentRecordResponse{
+			ID:                   payment.ID,
+			CustomerID:           payment.CustomerID,
+			TransactionAmount:    payment.Amount,
+			TransactionReference: payment.TransactionReference,
+			TransactionDate:      payment.TransactionDate.Format("2006-01-02T15:04:05Z07:00"),
+			Status:               string(payment.Status),
+			ProcessedAt:          payment.ProcessedAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+
+	h.logger.Info("customer payments retrieved successfully",
+		zap.String("customer_id", customerID),
+		zap.Int("count", len(payments)),
+	)
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"customer_id": customerID,
+		"count":       len(payments),
+		"payments":    response,
+	})
+}
+
 // HealthCheck handles health check endpoint
 func (h *PaymentHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{

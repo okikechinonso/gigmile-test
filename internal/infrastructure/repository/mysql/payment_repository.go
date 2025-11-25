@@ -121,16 +121,19 @@ func (r *GORMPaymentRepository) ExistsByTransactionReference(ctx context.Context
 	return existsInDB, nil
 }
 
-func (r *GORMPaymentRepository) FindByCustomerID(ctx context.Context, customerID string, limit int) ([]*domain.Payment, error) {
+func (r *GORMPaymentRepository) FindByCustomerID(ctx context.Context, customerID string) ([]*domain.Payment, error) {
 	var models []persistence.PaymentModel
 
 	result := r.db.WithContext(ctx).
 		Where("customer_id = ?", customerID).
 		Order("transaction_date DESC").
-		Limit(limit).
 		Find(&models)
 
 	if result.Error != nil {
+		r.logger.Error("failed to fetch payments by customer ID",
+			zap.Error(result.Error),
+			zap.String("customer_id", customerID),
+		)
 		return nil, fmt.Errorf("database error: %w", result.Error)
 	}
 
@@ -138,6 +141,11 @@ func (r *GORMPaymentRepository) FindByCustomerID(ctx context.Context, customerID
 	for i, model := range models {
 		payments[i] = model.ToDomain()
 	}
+
+	r.logger.Debug("fetched payments by customer ID",
+		zap.String("customer_id", customerID),
+		zap.Int("count", len(payments)),
+	)
 
 	return payments, nil
 }

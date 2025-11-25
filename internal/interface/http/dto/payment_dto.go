@@ -79,3 +79,13 @@ type CustomerResponse struct {
 	Status             string  `json:"status"`
 	IsFullyPaid        bool    `json:"is_fully_paid"`
 }
+
+type PaymentRecordResponse struct {
+	ID                   string `json:"id"`
+	CustomerID           string `json:"customer_id"`
+	TransactionAmount    int64  `json:"transaction_amount"`
+	TransactionReference string `json:"transaction_reference"`
+	TransactionDate      string `json:"transaction_date"`
+	Status               string `json:"status"`
+	ProcessedAt          string `json:"processed_at"`
+}

@@ -12,4 +12,5 @@ type PaymentRepository interface {
 	Save(ctx context.Context, payment *Payment) error
 	FindByTransactionReference(ctx context.Context, txRef string) (*Payment, error)
 	ExistsByTransactionReference(ctx context.Context, txRef string) (bool, error)
+	FindByCustomerID(ctx context.Context, customerID string) ([]*Payment, error)
 }

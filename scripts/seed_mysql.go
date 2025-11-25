@@ -19,7 +19,7 @@ func main() {
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?parseTime=true",
 		mysqlUser, mysqlPassword, mysqlHost, mysqlDatabase)
-	
+
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to MySQL: %v", err)
