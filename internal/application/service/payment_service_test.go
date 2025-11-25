@@ -66,6 +66,19 @@ func (m *MockPaymentRepository) FindByCustomerID(ctx context.Context, customerID
 	return args.Get(0).([]*domain.Payment), args.Error(1)
 }
 
+func (m *MockPaymentRepository) CountByCustomerID(ctx context.Context, customerID string) (int64, error) {
+	args := m.Called(ctx, customerID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockPaymentRepository) FindByCustomerIDWithPagination(ctx context.Context, customerID string, limit, offset int) ([]*domain.Payment, error) {
+	args := m.Called(ctx, customerID, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.Payment), args.Error(1)
+}
+
 func TestGetCustomerPayments_Success(t *testing.T) {
 	// Arrange
 	ctx := context.Background()
@@ -282,7 +295,7 @@ func TestGetCustomerPayments_ContextCancellation(t *testing.T) {
 	// Arrange
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel context immediately
-	
+
 	customerID := "GIG00005"
 	logger := zap.NewNop()
 
