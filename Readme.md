@@ -34,7 +34,7 @@ This document explains the technical approach, design decisions, and factors tha
 1. **Durability + Performance**:
 
    - MySQL: Source of truth with ACID guarantees
-   - Redis: High-speed cache layer (5-minute TTL)
+   - Redis: High-speed cache layer
    - Best of both worlds: persistent + fast
 
 2. **Performance Requirements**: 100k req/min = ~1,667 req/sec
@@ -60,13 +60,13 @@ Request → API Layer
             ↓
       Check Redis Cache
             ↓
-     Cache Hit? → Return (< 1ms)
+     Cache Hit? → 
             ↓ No
-      Query MySQL (GORM)
+      Query MySQL
             ↓
       Update Redis Cache
             ↓
-      Return (< 5ms)
+      Return 
 ```
 ---
 
@@ -90,7 +90,7 @@ To prevent duplicate payment processing when webhooks arrive multiple times, the
 
 ## 5. Performance Optimizations for 100K req/min
 
-To achieve 100,000 requests per minute, the system implements a cache-aside pattern with Redis that delivers a 95% cache hit rate, reducing MySQL load by 10x. Connection pooling is configured for both Redis (100 connections) and MySQL (100 max open, 10 idle) to avoid the overhead of creating new connections per request, improving performance by 10x. Async operations through goroutines handle event publishing and cache updates in a fire-and-forget manner, ensuring sub-5ms response times even with side effects.
+To achieve 100,000 requests per minute, the system implements a cache-aside pattern with Redis that delivers a 95% cache hit rate, reducing MySQL load significantly. Connection pooling is configured for both Redis (100 connections) and MySQL (100 max open, 10 idle) to avoid the overhead of creating new connections per request, improving performance. Async operations through goroutines handle event publishing and cache updates in a fire-and-forget manner, ensuring sub-5ms response times even with side effects.
 
 ---
 
