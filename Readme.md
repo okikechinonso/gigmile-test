@@ -72,7 +72,7 @@ Request → API Layer
 
 ## 3. Idempotency Implementation
 
-To prevent duplicate payment processing when webhooks arrive multiple times, the system implements a two-layer deduplication strategy. The first layer uses Redis SETNX with a 24-hour TTL for sub-millisecond duplicate detection, catching 99% of cases in the fast path. The second layer employs a MySQL unique constraint on the transaction reference as a safety net, ensuring duplicates are prevented even after Redis cache expiration. Both Redis SETNX and MySQL unique constraints provide atomic operations, making the solution race-safe for concurrent requests. This defense-in-depth approach combines Redis speed (10x faster than database queries) with MySQL durability for robust idempotency guarantees.
+To prevent duplicate payment processing when webhooks arrive multiple times, the system implements a two-layer deduplication strategy. The first layer uses Redis with a 24-hour TTL for sub-millisecond duplicate detection, catching 99% of cases in the fast path. The second layer employs a MySQL unique constraint on the transaction reference as a safety net, ensuring duplicates are prevented even after Redis cache expiration. Both Redis and MySQL unique constraints provide atomic operations, making the solution race-safe for concurrent requests. This approach combines Redis speed with MySQL durability for robust idempotency guarantees.
 
 ---
 
@@ -93,6 +93,10 @@ To prevent duplicate payment processing when webhooks arrive multiple times, the
 To achieve 100,000 requests per minute, the system implements a cache-aside pattern with Redis that delivers a 95% cache hit rate, reducing MySQL load by 10x. Connection pooling is configured for both Redis (100 connections) and MySQL (100 max open, 10 idle) to avoid the overhead of creating new connections per request, improving performance by 10x. Async operations through goroutines handle event publishing and cache updates in a fire-and-forget manner, ensuring sub-5ms response times even with side effects.
 
 ---
+
+## 6. Endpoints
+
+The endpoints are documented in [API_EXAMPLES.md](API_EXAMPLES.md)
 
 **Author**: Chinonson Okike  
 **Date**: November 2025  
