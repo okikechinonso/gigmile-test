@@ -72,6 +72,8 @@ curl -X POST http://localhost:8080/api/v1/payments \
   }'
 ```
 
+### Request 6: Get Customer Payments
+
 ```bash
 curl http://localhost:8072/api/v1/payments?customer_id=GIG00001&page=1&page_size=5
 ```
