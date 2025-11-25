@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-	// Connect to MySQL - use environment variables or defaults
 	mysqlUser := getEnv("MYSQL_USER", "root")
 	mysqlPassword := getEnv("MYSQL_PASSWORD", "my-secret-pw")
 	mysqlHost := getEnv("MYSQL_HOST", "localhost:3306")
@@ -47,8 +46,7 @@ func main() {
 		{"GIG00005", 100000000, 50},
 	}
 
-	deploymentDate := time.Now().AddDate(0, 0, -14) // 2 weeks ago
-
+	deploymentDate := time.Now().AddDate(0, 0, -14)
 	query := `
 		INSERT INTO customers (id, asset_value, outstanding_balance, total_paid,
 		                       repayment_term_weeks, deployment_date, status, version)

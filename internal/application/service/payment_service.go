@@ -12,11 +12,11 @@ import (
 type PaymentService struct {
 	customerRepo   domain.CustomerRepository
 	paymentRepo    domain.PaymentRepository
-	eventPublisher domain.EventPublisher // Optional - can be nil
+	eventPublisher domain.EventPublisher 
 	logger         *zap.Logger
 }
 
-// NewPaymentService creates a payment service with event publishing
+
 func NewPaymentService(
 	customerRepo domain.CustomerRepository,
 	paymentRepo domain.PaymentRepository,
@@ -111,9 +111,7 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		)
 		return nil, fmt.Errorf("failed to apply payment: %w", err)
 	}
-
-	// Save customer with updated balance FIRST
-	// Retry once on optimistic lock failure
+    // Save updated customer
 	err = s.customerRepo.Save(ctx, customer)
 	if err == domain.ErrOptimisticLock {
 		s.logger.Warn("optimistic lock conflict, retrying once",
@@ -141,7 +139,7 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 		return nil, fmt.Errorf("failed to save customer: %w", err)
 	}
 
-	// Now save the payment record AFTER customer is successfully updated
+	// save the payment record AFTER customer is successfully updated
 	payment, err := domain.NewPayment(
 		req.CustomerID,
 		req.TransactionAmount,
@@ -210,7 +208,6 @@ func (s *PaymentService) ProcessPayment(ctx context.Context, req ProcessPaymentR
 }
 
 func (s *PaymentService) publishPaymentProcessedEvent(customer *domain.Customer, req ProcessPaymentRequest) {
-	// Use background context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -231,7 +228,6 @@ func (s *PaymentService) publishPaymentProcessedEvent(customer *domain.Customer,
 			zap.String("customer_id", customer.ID),
 			zap.String("event_id", event.GetEventID()),
 		)
-		// TODO: Save to outbox for retry
 	} else {
 		s.logger.Debug("payment processed event published",
 			zap.String("event_id", event.GetEventID()),

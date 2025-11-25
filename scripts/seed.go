@@ -11,7 +11,6 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-// This script seeds sample customer data into Redis
 func main() {
 	// Connect to Redis
 	client := redis.NewClient(&redis.Options{
@@ -35,14 +34,14 @@ func main() {
 		assetValue int64
 		termWeeks  int
 	}{
-		{"GIG00001", 100000000, 50}, // N1,000,000
+		{"GIG00001", 100000000, 50}, 
 		{"GIG00002", 100000000, 50},
 		{"GIG00003", 100000000, 50},
 		{"GIG00004", 100000000, 50},
 		{"GIG00005", 100000000, 50},
 	}
 
-	deploymentDate := time.Now().AddDate(0, 0, -14) // 2 weeks ago
+	deploymentDate := time.Now().AddDate(0, 0, -14) 
 
 	for _, c := range customers {
 		customer, err := domain.NewCustomer(c.id, c.assetValue, c.termWeeks, deploymentDate)

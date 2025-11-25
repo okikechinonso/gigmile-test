@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// MockCustomerRepository is a mock implementation of CustomerRepository
 type MockCustomerRepository struct {
 	mock.Mock
 }
@@ -35,7 +34,6 @@ func (m *MockCustomerRepository) UpdateBalance(ctx context.Context, customerID s
 	return args.Error(0)
 }
 
-// MockPaymentRepository is a mock implementation of PaymentRepository
 type MockPaymentRepository struct {
 	mock.Mock
 }
@@ -80,7 +78,6 @@ func (m *MockPaymentRepository) FindByCustomerIDWithPagination(ctx context.Conte
 }
 
 func TestGetCustomerPayments_Success(t *testing.T) {
-	// Arrange
 	ctx := context.Background()
 	customerID := "GIG00001"
 	logger := zap.NewNop()
@@ -90,7 +87,6 @@ func TestGetCustomerPayments_Success(t *testing.T) {
 
 	service := NewPaymentService(mockCustomerRepo, mockPaymentRepo, nil, logger)
 
-	// Mock customer exists
 	customer := &domain.Customer{
 		ID:                 customerID,
 		AssetValue:         100000000,
@@ -101,7 +97,6 @@ func TestGetCustomerPayments_Success(t *testing.T) {
 	}
 	mockCustomerRepo.On("FindByID", ctx, customerID).Return(customer, nil)
 
-	// Mock payments
 	now := time.Now()
 	payments := []*domain.Payment{
 		{
@@ -125,10 +120,8 @@ func TestGetCustomerPayments_Success(t *testing.T) {
 	}
 	mockPaymentRepo.On("FindByCustomerID", ctx, customerID).Return(payments, nil)
 
-	// Act
 	result, err := service.GetCustomerPayments(ctx, customerID)
 
-	// Assert
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result, 2)
@@ -142,7 +135,6 @@ func TestGetCustomerPayments_Success(t *testing.T) {
 }
 
 func TestGetCustomerPayments_CustomerNotFound(t *testing.T) {
-	// Arrange
 	ctx := context.Background()
 	customerID := "NONEXISTENT"
 	logger := zap.NewNop()
@@ -152,13 +144,10 @@ func TestGetCustomerPayments_CustomerNotFound(t *testing.T) {
 
 	service := NewPaymentService(mockCustomerRepo, mockPaymentRepo, nil, logger)
 
-	// Mock customer not found
 	mockCustomerRepo.On("FindByID", ctx, customerID).Return(nil, errors.New("customer not found"))
 
-	// Act
 	result, err := service.GetCustomerPayments(ctx, customerID)
 
-	// Assert
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to get customer")
@@ -168,7 +157,6 @@ func TestGetCustomerPayments_CustomerNotFound(t *testing.T) {
 }
 
 func TestGetCustomerPayments_NoPayments(t *testing.T) {
-	// Arrange
 	ctx := context.Background()
 	customerID := "GIG00002"
 	logger := zap.NewNop()
@@ -178,7 +166,6 @@ func TestGetCustomerPayments_NoPayments(t *testing.T) {
 
 	service := NewPaymentService(mockCustomerRepo, mockPaymentRepo, nil, logger)
 
-	// Mock customer exists
 	customer := &domain.Customer{
 		ID:                 customerID,
 		AssetValue:         100000000,
@@ -189,13 +176,10 @@ func TestGetCustomerPayments_NoPayments(t *testing.T) {
 	}
 	mockCustomerRepo.On("FindByID", ctx, customerID).Return(customer, nil)
 
-	// Mock no payments
 	mockPaymentRepo.On("FindByCustomerID", ctx, customerID).Return([]*domain.Payment{}, nil)
 
-	// Act
 	result, err := service.GetCustomerPayments(ctx, customerID)
 
-	// Assert
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result, 0)
@@ -205,7 +189,6 @@ func TestGetCustomerPayments_NoPayments(t *testing.T) {
 }
 
 func TestGetCustomerPayments_PaymentRepoError(t *testing.T) {
-	// Arrange
 	ctx := context.Background()
 	customerID := "GIG00003"
 	logger := zap.NewNop()
@@ -215,7 +198,6 @@ func TestGetCustomerPayments_PaymentRepoError(t *testing.T) {
 
 	service := NewPaymentService(mockCustomerRepo, mockPaymentRepo, nil, logger)
 
-	// Mock customer exists
 	customer := &domain.Customer{
 		ID:                 customerID,
 		AssetValue:         100000000,
@@ -226,13 +208,10 @@ func TestGetCustomerPayments_PaymentRepoError(t *testing.T) {
 	}
 	mockCustomerRepo.On("FindByID", ctx, customerID).Return(customer, nil)
 
-	// Mock payment repository error
 	mockPaymentRepo.On("FindByCustomerID", ctx, customerID).Return(nil, errors.New("database connection error"))
 
-	// Act
 	result, err := service.GetCustomerPayments(ctx, customerID)
 
-	// Assert
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to get payments")
@@ -242,7 +221,6 @@ func TestGetCustomerPayments_PaymentRepoError(t *testing.T) {
 }
 
 func TestGetCustomerPayments_MultiplePayments(t *testing.T) {
-	// Arrange
 	ctx := context.Background()
 	customerID := "GIG00004"
 	logger := zap.NewNop()
@@ -252,7 +230,6 @@ func TestGetCustomerPayments_MultiplePayments(t *testing.T) {
 
 	service := NewPaymentService(mockCustomerRepo, mockPaymentRepo, nil, logger)
 
-	// Mock customer exists
 	customer := &domain.Customer{
 		ID:                 customerID,
 		AssetValue:         100000000,
@@ -263,7 +240,6 @@ func TestGetCustomerPayments_MultiplePayments(t *testing.T) {
 	}
 	mockCustomerRepo.On("FindByID", ctx, customerID).Return(customer, nil)
 
-	// Mock multiple payments (customer made 10 payments)
 	now := time.Now()
 	payments := make([]*domain.Payment, 10)
 	for i := 0; i < 10; i++ {
@@ -279,10 +255,8 @@ func TestGetCustomerPayments_MultiplePayments(t *testing.T) {
 	}
 	mockPaymentRepo.On("FindByCustomerID", ctx, customerID).Return(payments, nil)
 
-	// Act
 	result, err := service.GetCustomerPayments(ctx, customerID)
 
-	// Assert
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Len(t, result, 10)
@@ -292,9 +266,8 @@ func TestGetCustomerPayments_MultiplePayments(t *testing.T) {
 }
 
 func TestGetCustomerPayments_ContextCancellation(t *testing.T) {
-	// Arrange
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancel context immediately
+	cancel()
 
 	customerID := "GIG00005"
 	logger := zap.NewNop()
@@ -304,13 +277,10 @@ func TestGetCustomerPayments_ContextCancellation(t *testing.T) {
 
 	service := NewPaymentService(mockCustomerRepo, mockPaymentRepo, nil, logger)
 
-	// Mock customer repo returns context error
 	mockCustomerRepo.On("FindByID", ctx, customerID).Return(nil, context.Canceled)
 
-	// Act
 	result, err := service.GetCustomerPayments(ctx, customerID)
 
-	// Assert
 	assert.Error(t, err)
 	assert.Nil(t, result)
 
