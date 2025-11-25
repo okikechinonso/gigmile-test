@@ -24,16 +24,6 @@ Wait about 10 seconds for services to initialize.
 docker-compose exec api go run scripts/seed.go
 ```
 
-You should see:
-
-```
-Connected to Redis successfully
-Seeded customer: GIG00001 (Asset: N10000000, Term: 50 weeks)
-Seeded customer: GIG00002 (Asset: N10000000, Term: 50 weeks)
-...
-Seed completed successfully!
-```
-
 ### Step 3: Test the API
 
 ```bash
@@ -102,13 +92,6 @@ go run scripts/seed.go
 
 ```bash
 go run cmd/api/main.go
-```
-
-You should see:
-
-```
-{"level":"info","ts":...,"msg":"connected to Redis successfully"}
-{"level":"info","ts":...,"msg":"starting server","address":"0.0.0.0:8080"}
 ```
 
 ### Step 5: Test the API
