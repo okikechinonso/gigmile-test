@@ -150,6 +150,65 @@ func (r *GORMPaymentRepository) FindByCustomerID(ctx context.Context, customerID
 	return payments, nil
 }
 
+func (r *GORMPaymentRepository) FindByCustomerIDWithPagination(ctx context.Context, customerID string, limit, offset int) ([]*domain.Payment, error) {
+	var models []persistence.PaymentModel
+
+	result := r.db.WithContext(ctx).
+		Where("customer_id = ?", customerID).
+		Order("transaction_date DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&models)
+
+	if result.Error != nil {
+		r.logger.Error("failed to fetch payments by customer ID with pagination",
+			zap.Error(result.Error),
+			zap.String("customer_id", customerID),
+			zap.Int("limit", limit),
+			zap.Int("offset", offset),
+		)
+		return nil, fmt.Errorf("database error: %w", result.Error)
+	}
+
+	payments := make([]*domain.Payment, len(models))
+	for i, model := range models {
+		payments[i] = model.ToDomain()
+	}
+
+	r.logger.Debug("fetched payments by customer ID with pagination",
+		zap.String("customer_id", customerID),
+		zap.Int("count", len(payments)),
+		zap.Int("limit", limit),
+		zap.Int("offset", offset),
+	)
+
+	return payments, nil
+}
+
+func (r *GORMPaymentRepository) CountByCustomerID(ctx context.Context, customerID string) (int64, error) {
+	var count int64
+
+	result := r.db.WithContext(ctx).
+		Model(&persistence.PaymentModel{}).
+		Where("customer_id = ?", customerID).
+		Count(&count)
+
+	if result.Error != nil {
+		r.logger.Error("failed to count payments by customer ID",
+			zap.Error(result.Error),
+			zap.String("customer_id", customerID),
+		)
+		return 0, fmt.Errorf("database error: %w", result.Error)
+	}
+
+	r.logger.Debug("counted payments by customer ID",
+		zap.String("customer_id", customerID),
+		zap.Int64("count", count),
+	)
+
+	return count, nil
+}
+
 func (r *GORMPaymentRepository) GetTotalPaidByCustomer(ctx context.Context, customerID string) (int64, error) {
 	var total int64
 

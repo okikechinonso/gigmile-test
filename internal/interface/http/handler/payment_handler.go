@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gigmile/payment-service/internal/application/service"
 	"github.com/gigmile/payment-service/internal/interface/http/dto"
@@ -123,6 +124,17 @@ func (h *PaymentHandler) GetCustomerPayments(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Parse pagination parameters
+	pageStr := r.URL.Query().Get("page")
+	pageSizeStr := r.URL.Query().Get("page_size")
+
+	// If pagination params are provided, use paginated endpoint
+	if pageStr != "" || pageSizeStr != "" {
+		h.getCustomerPaymentsPaginated(w, r, customerID, pageStr, pageSizeStr)
+		return
+	}
+
+	// Otherwise, return all payments (backward compatibility)
 	payments, err := h.paymentService.GetCustomerPayments(r.Context(), customerID)
 	if err != nil {
 		h.logger.Error("failed to get customer payments",
@@ -156,6 +168,75 @@ func (h *PaymentHandler) GetCustomerPayments(w http.ResponseWriter, r *http.Requ
 		"customer_id": customerID,
 		"count":       len(payments),
 		"payments":    response,
+	})
+}
+
+func (h *PaymentHandler) getCustomerPaymentsPaginated(w http.ResponseWriter, r *http.Request, customerID, pageStr, pageSizeStr string) {
+	page := 1
+	pageSize := 10
+
+	// Parse page
+	if pageStr != "" {
+		if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+			page = p
+		}
+	}
+
+	// Parse page_size
+	if pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil && ps > 0 {
+			pageSize = ps
+		}
+	}
+
+	params := service.PaginationParams{
+		Page:     page,
+		PageSize: pageSize,
+	}
+
+	result, err := h.paymentService.GetCustomerPaymentsPaginated(r.Context(), customerID, params)
+	if err != nil {
+		h.logger.Error("failed to get customer payments with pagination",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+			zap.Int("page", page),
+			zap.Int("page_size", pageSize),
+		)
+		h.respondError(w, http.StatusInternalServerError, "failed to get customer payments", err)
+		return
+	}
+
+	// Transform domain payments to response DTOs
+	response := make([]dto.PaymentRecordResponse, len(result.Payments))
+	for i, payment := range result.Payments {
+		response[i] = dto.PaymentRecordResponse{
+			ID:                   payment.ID,
+			CustomerID:           payment.CustomerID,
+			TransactionAmount:    payment.Amount,
+			TransactionReference: payment.TransactionReference,
+			TransactionDate:      payment.TransactionDate.Format("2006-01-02T15:04:05Z07:00"),
+			Status:               string(payment.Status),
+			ProcessedAt:          payment.ProcessedAt.Format("2006-01-02T15:04:05Z07:00"),
+		}
+	}
+
+	h.logger.Info("customer payments retrieved successfully with pagination",
+		zap.String("customer_id", customerID),
+		zap.Int("count", len(response)),
+		zap.Int("page", result.Page),
+		zap.Int("page_size", result.PageSize),
+		zap.Int64("total_count", result.TotalCount),
+	)
+
+	h.respondJSON(w, http.StatusOK, map[string]interface{}{
+		"customer_id": customerID,
+		"payments":    response,
+		"pagination": map[string]interface{}{
+			"page":        result.Page,
+			"page_size":   result.PageSize,
+			"total_count": result.TotalCount,
+			"total_pages": result.TotalPages,
+		},
 	})
 }
 

@@ -244,6 +244,19 @@ func (s *PaymentService) GetCustomer(ctx context.Context, customerID string) (*d
 	return s.customerRepo.FindByID(ctx, customerID)
 }
 
+type PaginationParams struct {
+	Page     int
+	PageSize int
+}
+
+type PaginatedPaymentsResponse struct {
+	Payments   []*domain.Payment
+	TotalCount int64
+	Page       int
+	PageSize   int
+	TotalPages int
+}
+
 func (s *PaymentService) GetCustomerPayments(ctx context.Context, customerID string) ([]*domain.Payment, error) {
 	// Verify customer exists
 	_, err := s.customerRepo.FindByID(ctx, customerID)
@@ -270,4 +283,72 @@ func (s *PaymentService) GetCustomerPayments(ctx context.Context, customerID str
 	)
 
 	return payments, nil
+}
+
+func (s *PaymentService) GetCustomerPaymentsPaginated(ctx context.Context, customerID string, params PaginationParams) (*PaginatedPaymentsResponse, error) {
+	// Set defaults
+	if params.Page < 1 {
+		params.Page = 1
+	}
+	if params.PageSize < 1 {
+		params.PageSize = 10
+	}
+	if params.PageSize > 100 {
+		params.PageSize = 100 // Max page size
+	}
+
+	// Verify customer exists
+	_, err := s.customerRepo.FindByID(ctx, customerID)
+	if err != nil {
+		s.logger.Error("failed to get customer",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+		)
+		return nil, fmt.Errorf("failed to get customer: %w", err)
+	}
+
+	// Get total count
+	totalCount, err := s.paymentRepo.CountByCustomerID(ctx, customerID)
+	if err != nil {
+		s.logger.Error("failed to count customer payments",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+		)
+		return nil, fmt.Errorf("failed to count payments: %w", err)
+	}
+
+	// Calculate offset
+	offset := (params.Page - 1) * params.PageSize
+
+	// Get paginated payments
+	payments, err := s.paymentRepo.FindByCustomerIDWithPagination(ctx, customerID, params.PageSize, offset)
+	if err != nil {
+		s.logger.Error("failed to get customer payments",
+			zap.Error(err),
+			zap.String("customer_id", customerID),
+		)
+		return nil, fmt.Errorf("failed to get payments: %w", err)
+	}
+
+	// Calculate total pages
+	totalPages := int(totalCount) / params.PageSize
+	if int(totalCount)%params.PageSize > 0 {
+		totalPages++
+	}
+
+	s.logger.Info("retrieved customer payments with pagination",
+		zap.String("customer_id", customerID),
+		zap.Int("count", len(payments)),
+		zap.Int("page", params.Page),
+		zap.Int("page_size", params.PageSize),
+		zap.Int64("total_count", totalCount),
+	)
+
+	return &PaginatedPaymentsResponse{
+		Payments:   payments,
+		TotalCount: totalCount,
+		Page:       params.Page,
+		PageSize:   params.PageSize,
+		TotalPages: totalPages,
+	}, nil
 }
