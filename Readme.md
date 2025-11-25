@@ -88,7 +88,7 @@ To prevent duplicate payment processing when webhooks arrive multiple times, the
 
 ---
 
-## 6. Performance Optimizations for 100K req/min
+## 5. Performance Optimizations for 100K req/min
 
 To achieve 100,000 requests per minute, the system implements a cache-aside pattern with Redis that delivers a 95% cache hit rate, reducing MySQL load by 10x. Connection pooling is configured for both Redis (100 connections) and MySQL (100 max open, 10 idle) to avoid the overhead of creating new connections per request, improving performance by 10x. Async operations through goroutines handle event publishing and cache updates in a fire-and-forget manner, ensuring sub-5ms response times even with side effects.
 
